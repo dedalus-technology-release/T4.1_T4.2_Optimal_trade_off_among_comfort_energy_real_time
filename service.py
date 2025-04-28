@@ -11,9 +11,10 @@ from scripts.data_preprocessing import preprocess_data
 from scripts.forecast_spmv import forecast_and_update_df, prepare_features, generate_forecasts
 import tensorflow as tf
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 
 load_dotenv()  # take environment variables from .env
-    
+
 BASE_DIR = "data"
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DATASETS_DIR = os.path.join(BASE_DIR, "datasets")
@@ -26,6 +27,8 @@ MODEL  = tf.keras.models.load_model(
     MODEL_PATH,
     custom_objects={"mse": tf.keras.metrics.MeanSquaredError()}
 )
+
+app = FastAPI()
 
 def iso_date(dt):
     return dt.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
@@ -135,6 +138,25 @@ def update_datasets():
                 print(f"Updated data saved in {csv_path}")
             except Exception as e:
                 print(f"Error during saving {sensor_id}: {e}")
-    
-if __name__ == "__main__":
+
+@app.get("/forecast_sPMV")
+def forecast_sPMV():
     update_datasets()
+    return {"message": "Forecasting completed!"}
+
+@app.get("/sPMV/{building}/{exx}")
+def GET_forecasted_sPMV(building: str, exx: str):
+    folder_path = os.path.join(DATASETS_DIR, building, exx)
+    csv_path = os.path.join(folder_path, f"forecasted_sPMV.csv")
+    
+    if not os.path.exists(csv_path):
+        raise HTTPException(status_code=404, detail=f"File not found for building '{building}' and apartment '{exx}'.")
+
+    try:
+        df = pd.read_csv(csv_path)
+        return df.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading CSV file: {str(e)}")
+
+#if __name__ == "__main__":
+#    update_datasets()

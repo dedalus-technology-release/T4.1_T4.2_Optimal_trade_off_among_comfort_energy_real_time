@@ -210,7 +210,7 @@ def save_solutions_to_csv(solutions: List[OptimalSolution], target_data: pd.Data
     print(f"Detailed solution data saved to: {output_dir}")
 
 
-def main():
+def pareto_optimizator():
     """
     Main function to run the optimization process.
     """
@@ -273,7 +273,3 @@ def main():
             print(f"{solution.solution_type} - Energy Savings: {solution.energy_savings:.2f}%")
     else:
         print("No valid solutions found. Please check your data and parameters.")
-
-
-if __name__ == "__main__":
-    main()
