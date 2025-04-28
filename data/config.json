@@ -1,0 +1,58 @@
+{
+    "CASA MADDALENA": {
+        "E144": {
+            "smart_meters": "domxem3-485519D6A1E9",
+            "air_quality": "domx_iaq_e89f6db2216c"
+        },
+        "E145": {
+            "smart_meters": "domxem3-485519D69719",
+            "air_quality": "domx_iaq_e89f6db44bbc"
+        },
+        "E147": {
+            "smart_meters": "domxem3-485519D742B0",
+            "air_quality": "domx_iaq_e831cdcb7da4"
+        }
+    },
+    "CASA TITO GARZONI": {
+        "E149": {
+            "smart_meters": "domxem3-485519D76E24",
+            "air_quality": "domx_iaq_e831cdcb7da4"
+        },
+        "E150": {
+            "smart_meters": "domxem3-485519D91F1B",
+            "air_quality": "domx_iaq_e89f6db22028"
+        },
+        "E151": {
+            "smart_meters": "domxem3-485519D79C43",
+            "air_quality": "domx_iaq_e831cdcb7dc0"
+        },
+        "E152": {
+            "smart_meters": "domxem3-485519D6D82C",
+            "air_quality": "domx_iaq_e831cdcb7dc4"
+        },
+        "E153": {
+            "smart_meters": "domxem3-485519DBF48A",
+            "air_quality": "domx_iaq_e89f6db22038"
+        },
+        "E154": {
+            "smart_meters": "domxem3-485519D6BA31",
+            "air_quality": "domx_iaq_e831cdcb7db0"
+        },
+        "E155": {
+            "smart_meters": "domxem3-485519D69FE8",
+            "air_quality": "domx_iaq_e831cdcb7db8"
+        },
+        "E157": {
+            "smart_meters": "domxem3-485519D94F14",
+            "air_quality": "domx_iaq_e831cdcb7dc8"
+        },
+        "E158": {
+            "smart_meters": "domxem3-485519D6E74C",
+            "air_quality": "domx_iaq_e831cdcb7dd8"
+        },
+        "E159": {
+            "smart_meters": "domxem3-485519D74880",
+            "air_quality": "domx_iaq_e89f6db44bc8"
+        }
+    }
+}
