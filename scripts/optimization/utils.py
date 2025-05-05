@@ -89,23 +89,20 @@ def load_data(file_path: str) -> pd.DataFrame:
     return df
 
 
-def split_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def process_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Split data into historical (up to Jan 30) and target (Jan 31) data.
+    Process the data without splitting into historical and target.
     
     Args:
         df: DataFrame with all data.
         
     Returns:
-        Tuple of (historical_data, target_data).
+        Processed DataFrame.
     """
-    # Filter target data (January 31)
-    target_data = df[df['time'].dt.date == pd.Timestamp('2025-01-31').date()]
+    # Process all data without separating target day
+    processed_data = df.copy()
     
-    # Filter historical data (up to January 30)
-    historical_data = df[df['time'].dt.date < pd.Timestamp('2025-01-31').date()]
-    
-    return historical_data, target_data
+    return processed_data
 
 
 def read_csv_data(file_path: str, debug: bool = False) -> List[List[str]]:
@@ -469,14 +466,12 @@ def create_artificial_solution(s1_solution: OptimalSolution, s3_solution: Optima
     )
 
 
-def plot_solution(solution: OptimalSolution, target_data: pd.DataFrame, 
-                 output_dir: str = 'plots') -> None:
+def plot_solution(solution: OptimalSolution, output_dir: str = 'plots') -> None:
     """
     Generate and save visualizations for the optimal solution.
     
     Args:
         solution: OptimalSolution to plot.
-        target_data: Target day data (January 31st).
         output_dir: Directory to save plots.
     """
     import os
@@ -485,60 +480,55 @@ def plot_solution(solution: OptimalSolution, target_data: pd.DataFrame,
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Create x-axis hours (0-23) for solution
-    solution_hours = list(range(24))
+    # Create x-axis values for time series plots
+    hours = list(range(24))
     
-    # Create x-axis for target data based on available hours
-    target_hours = list(range(len(target_data)))
-    
-    # Plot temperature profile
+    # Temperature plot
     plt.figure(figsize=(10, 6))
-    plt.plot(solution_hours, solution.temp_values, 'bo-', label=f'{solution.solution_type} Temperature')
-    plt.plot(target_hours, target_data['t_r'].values, 'ro-', label='Target Temperature')
-    plt.title(f'{solution.solution_type} Temperature Profile vs Target Day')
+    plt.plot(hours, solution.temp_values, 'b-', linewidth=2, label='Optimal Temperature')
     plt.xlabel('Hour of Day')
     plt.ylabel('Temperature (°C)')
-    plt.grid(True)
+    plt.title(f'{solution.solution_type} - Temperature Profile - {solution.date}')
     plt.legend()
+    plt.grid(True)
+    plt.xticks(hours)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f'{solution.solution_type}_temperature.png'))
     plt.close()
     
     # Plot humidity profile
     plt.figure(figsize=(10, 6))
-    plt.plot(solution_hours, solution.rh_values, 'bo-', label=f'{solution.solution_type} Humidity')
-    plt.plot(target_hours, target_data['rh_r'].values, 'ro-', label='Target Humidity')
-    plt.title(f'{solution.solution_type} Humidity Profile vs Target Day')
+    plt.plot(hours, solution.rh_values, 'b-', linewidth=2, label='Optimal Humidity')
     plt.xlabel('Hour of Day')
     plt.ylabel('Relative Humidity (%)')
-    plt.grid(True)
+    plt.title(f'{solution.solution_type} - Humidity Profile - {solution.date}')
     plt.legend()
+    plt.grid(True)
+    plt.xticks(hours)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f'{solution.solution_type}_humidity.png'))
     plt.close()
     
-    # Plot energy profile
+    # Energy plot
     plt.figure(figsize=(10, 6))
-    plt.plot(solution_hours, solution.energy_values, 'go-', label=f'{solution.solution_type} Energy')
-    plt.plot(target_hours, target_data['energy_average'].values, 'ro-', label='Target Energy')
-    plt.title(f'{solution.solution_type} Energy Profile vs Target Day')
+    plt.plot(hours, solution.energy_values, 'g-', linewidth=2, label='Optimal Energy')
     plt.xlabel('Hour of Day')
     plt.ylabel('Energy (Wh)')
-    plt.grid(True)
+    plt.title(f'{solution.solution_type} - Energy Profile - {solution.date}')
     plt.legend()
+    plt.grid(True)
+    plt.xticks(hours)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f'{solution.solution_type}_energy.png'))
     plt.close()
 
 
-def plot_solutions_comparison(solutions: List[OptimalSolution], target_data: pd.DataFrame, 
-                              output_dir: str = 'plots') -> None:
+def plot_solutions_comparison(solutions: List[OptimalSolution], output_dir: str = 'plots') -> None:
     """
     Generate and save comparison visualizations for all solutions.
     
     Args:
         solutions: List of solutions to compare.
-        target_data: Target day data (January 31st).
         output_dir: Directory to save plots.
     """
     import os
@@ -547,43 +537,39 @@ def plot_solutions_comparison(solutions: List[OptimalSolution], target_data: pd.
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Create x-axis hours (0-23) for solutions
-    solution_hours = list(range(24))
+    # Create x-axis values for time series plots
+    hours = list(range(24))
     
-    # Create x-axis for target data based on available hours
-    target_hours = list(range(len(target_data)))
+    # Temperature comparison
+    plt.figure(figsize=(12, 8))
     
-    # Plot temperature comparison
-    plt.figure(figsize=(10, 6))
+    # Plot each solution's temperature
     for solution in solutions:
-        plt.plot(solution_hours, solution.temp_values, 'o-', label=f'{solution.solution_type}')
-    plt.plot(target_hours, target_data['t_r'].values, 'ko-', label='Target')
-    plt.title('Temperature Profile Comparison')
+        plt.plot(hours, solution.temp_values, linewidth=2, label=f'{solution.solution_type}')
+    
     plt.xlabel('Hour of Day')
     plt.ylabel('Temperature (°C)')
-    plt.grid(True)
+    plt.title('Temperature Profiles Comparison')
     plt.legend()
+    plt.grid(True)
+    plt.xticks(hours)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'temperature_comparison.png'))
+    plt.savefig(os.path.join(output_dir, 'comparison_temperature.png'))
     plt.close()
     
-    # Plot comprehensive energy comparison
-    plt.figure(figsize=(12, 7))
+    # Energy comparison
+    plt.figure(figsize=(12, 8))
     
-    # Plot solutions
+    # Plot each solution's energy
     for solution in solutions:
-        plt.plot(solution_hours, solution.energy_values, 'o-', label=f'{solution.solution_type}')
+        plt.plot(hours, solution.energy_values, linewidth=2, label=f'{solution.solution_type}')
     
-    # Plot target energy metrics
-    plt.plot(target_hours, target_data['energy_average'].values, 'ko-', label='Target Energy Average')
-    plt.plot(target_hours, target_data['baseline'].values, 'k--', label='Target Baseline')
-    plt.plot(target_hours, target_data['flexibility_below'].values, 'k:', label='Target Flexibility Below')
-    
-    plt.title('Energy Profile Comparison')
     plt.xlabel('Hour of Day')
     plt.ylabel('Energy (Wh)')
-    plt.grid(True)
+    plt.title('Energy Profiles Comparison')
     plt.legend()
+    plt.grid(True)
+    plt.xticks(hours)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'energy_comparison.png'))
     plt.close()
@@ -610,19 +596,10 @@ def plot_solutions_comparison(solutions: List[OptimalSolution], target_data: pd.
         multiplier += 1
     
     # Add a bar for the target data regardless of length
-    target_values = [
-        # For comfort, use the percentage of hours within comfort threshold
-        sum(1 for val in target_data['forecasted_sPMV'] if abs(val) <= COMFORT_THRESHOLD) / len(target_data) * 100,
-        # Total energy in kWh
-        target_data['energy_average'].sum() / 1000,
-        # Average temperature
-        target_data['t_r'].mean(),
-        # Average humidity
-        target_data['rh_r'].mean()
-    ]
+    
     
     offset = width * multiplier
-    plt.bar(x + offset, target_values, width, label='Target')
+    plt.bar(x + offset, width, label='Target')
     
     plt.ylabel('Value')
     plt.title('Comparison of Key Metrics')

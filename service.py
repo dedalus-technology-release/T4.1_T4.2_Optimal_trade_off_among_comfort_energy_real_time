@@ -9,26 +9,34 @@ from scripts.augment_dataset import augment_dataset
 from scripts.control_dbf_apis import get_token, get_device_data_grouped
 from scripts.data_preprocessing import preprocess_data
 from scripts.forecast_spmv import forecast_and_update_df, prepare_features, generate_forecasts
+from scripts.pareto_optimization_runner import run_pareto_optimization
 import tensorflow as tf
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status, Form
+from fastapi.security import OAuth2PasswordRequestForm
+from models import create_user, authenticate_user, is_admin
+from auth import create_access_token, verify_token
+from database import init_db
+
+from typing import Optional
+from datetime import timedelta
 
 load_dotenv()  # take environment variables from .env
 
-BASE_DIR = "data"
+BASE_DIR = os.getenv('DATA_DIR')
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DATASETS_DIR = os.path.join(BASE_DIR, "datasets")
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'final_model.h5')
 USERNAME = os.getenv('DOMX_USERNAME')
 PASSWORD = os.getenv('DOMX_PASSWORD')
-DEFAULT_START_DAYS_AGO = 7  # if there is no CSV file, start from 7 days ago
+DEFAULT_START_DAYS_AGO = 7
+
+app = FastAPI()
 
 MODEL  = tf.keras.models.load_model(
     MODEL_PATH,
     custom_objects={"mse": tf.keras.metrics.MeanSquaredError()}
 )
-
-app = FastAPI()
 
 def iso_date(dt):
     return dt.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
@@ -139,15 +147,80 @@ def update_datasets():
             except Exception as e:
                 print(f"Error during saving {sensor_id}: {e}")
 
+def optimize_all():
+    with open(CONFIG_PATH, 'r') as f:
+        config = json.load(f)
+    
+    for building, apartment in config.items():
+        for exx, sensors in apartment.items():
+            folder_path = os.path.join(DATASETS_DIR, building, exx)
+            csv_path = os.path.join(folder_path, f"{exx}_dataset.csv")
+            
+            if not os.path.exists(csv_path):
+                print(f"File not found for building '{building}' and apartment '{exx}'.")
+                continue
+            
+            run_pareto_optimization(csv_path, folder_path)
+
+# Endpoint: login (token)
+@app.post("/token")
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if not authenticate_user(form_data.username, form_data.password):
+        raise HTTPException(status_code=400, detail="Invalid username or password")
+    
+    access_token_expires = timedelta(minutes=60)
+    access_token = create_access_token(data={"sub": form_data.username}, expires_delta=access_token_expires)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Endpoint: create new user (only admin)
+@app.post("/admin/create_user")
+def api_create_user(
+    username: str = Form(...),
+    password: str = Form(...),
+    is_admin_flag: Optional[bool] = Form(False),
+    current_user: str = Depends(verify_token)
+):
+    if not is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
+    try:
+        create_user(username, password, is_admin=is_admin_flag)
+        return {"message": f"User '{username}' created."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/forecast_sPMV")
-def forecast_sPMV():
+def forecast_sPMV(current_user: str = Depends(verify_token)):
+    if not is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
     update_datasets()
     return {"message": "Forecasting completed!"}
 
+@app.get("/run_optimization")
+def run_optimization(current_user: str = Depends(verify_token)):
+    if not is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    optimize_all()
+    return {"message": "Optimization completed!"}
+
 @app.get("/sPMV/{building}/{exx}")
-def GET_forecasted_sPMV(building: str, exx: str):
+def GET_forecasted_sPMV(current_user: str = Depends(verify_token), building: str = "CASA MADDALENA", exx: str = "E144"):
     folder_path = os.path.join(DATASETS_DIR, building, exx)
     csv_path = os.path.join(folder_path, f"forecasted_sPMV.csv")
+    
+    if not os.path.exists(csv_path):
+        raise HTTPException(status_code=404, detail=f"File not found for building '{building}' and apartment '{exx}'.")
+
+    try:
+        df = pd.read_csv(csv_path)
+        return df.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading CSV file: {str(e)}")
+
+@app.get("/optimization/{building}/{exx}")
+def GET_optimization(current_user: str = Depends(verify_token), building: str = "CASA MADDALENA", exx: str = "E144"):
+    folder_path = os.path.join(DATASETS_DIR, building, exx, "optimization_results")
+    csv_path = os.path.join(folder_path, f"solutions_summary.csv")
     
     if not os.path.exists(csv_path):
         raise HTTPException(status_code=404, detail=f"File not found for building '{building}' and apartment '{exx}'.")

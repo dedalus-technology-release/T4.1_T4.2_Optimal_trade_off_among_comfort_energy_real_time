@@ -1,0 +1,20 @@
+version: '3.9'
+name: DEDALUS-italian-DT
+services:
+  comfort-flexibility-service:
+    build: .
+    container_name: comfort-flexibility-service
+    ports:
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+    environment:
+      DOMX_USERNAME: ${DOMX_USERNAME}
+      DOMX_PASSWORD: ${DOMX_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      APP_PORT: ${APP_PORT}
+    volumes:
+      - data:/app/data
+
+volumes:
+  data:

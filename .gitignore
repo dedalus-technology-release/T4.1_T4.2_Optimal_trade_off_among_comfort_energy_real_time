@@ -3,3 +3,5 @@ venv
 .env
 *.csv
 build-dataset.py
+*.db
+*.ipynb
