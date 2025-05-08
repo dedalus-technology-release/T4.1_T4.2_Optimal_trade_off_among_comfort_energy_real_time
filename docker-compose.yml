@@ -13,8 +13,11 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       APP_PORT: ${APP_PORT}
+      DB_PATH: /app/data/users.db
     volumes:
       - data:/app/data
+    env_file:
+      - .env
 
 volumes:
   data:
