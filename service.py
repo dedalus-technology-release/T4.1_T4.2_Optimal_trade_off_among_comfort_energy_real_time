@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 from datetime import datetime, timedelta, timezone
+from fastapi.middleware.cors import CORSMiddleware
 
 from scripts.Calculate_sPMV_v1 import sPMV_calculation
 from scripts.augment_dataset import augment_dataset
@@ -12,7 +13,7 @@ from scripts.forecast_spmv import forecast_and_update_df, prepare_features, gene
 from scripts.pareto_optimization_runner import run_pareto_optimization
 import tensorflow as tf
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status, Form
+from fastapi import FastAPI, Depends, HTTPException, status, Form, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from models import create_user, authenticate_user, is_admin
 from auth import create_access_token, verify_token
@@ -37,6 +38,17 @@ MODEL  = tf.keras.models.load_model(
     MODEL_PATH,
     custom_objects={"mse": tf.keras.metrics.MeanSquaredError()}
 )
+
+app = FastAPI()
+
+app.add_middleware(
+     CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def iso_date(dt):
     return dt.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
@@ -164,13 +176,24 @@ def optimize_all():
 
 # Endpoint: login (token)
 @app.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
+def login( response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     if not authenticate_user(form_data.username, form_data.password):
         raise HTTPException(status_code=400, detail="Invalid username or password")
     
     access_token_expires = timedelta(minutes=60)
     access_token = create_access_token(data={"sub": form_data.username}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    # return {"access_token": access_token, "token_type": "bearer"}
+    response.set_cookie(
+        key="token",
+         value= access_token,
+          httponly=True, 
+          secure=False,  # use True in production with HTTP,
+          samesite="lax",
+          max_age=60*15, # 15 minutes
+          path="/"
+    )
+    return {"message": "Login  successful"}
 
 # Endpoint: create new user (only admin)
 @app.post("/admin/create_user")
@@ -189,6 +212,15 @@ def api_create_user(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/validate")
+def validate_user(current_user: str = Depends(verify_token)):
+    return {"user": current_user}
+
+@app.post("/logout")
+def logout(response:Response):
+    response.delete_cookie("token")
+    return {"message": "logged out"}
+    
 @app.get("/forecast_sPMV")
 def forecast_sPMV(current_user: str = Depends(verify_token)):
     if not is_admin(current_user):
