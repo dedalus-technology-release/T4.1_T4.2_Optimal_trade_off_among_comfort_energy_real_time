@@ -30,6 +30,7 @@ DATASETS_DIR = os.path.join(BASE_DIR, "datasets")
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'final_model.h5')
 USERNAME = os.getenv('DOMX_USERNAME')
 PASSWORD = os.getenv('DOMX_PASSWORD')
+APP_FE_URL = os.getenv('APP_FE_URL')
 DEFAULT_START_DAYS_AGO = 7
 
 app = FastAPI()
@@ -41,9 +42,11 @@ MODEL  = tf.keras.models.load_model(
 
 app = FastAPI()
 
+origins = [APP_FE_URL]
+
 app.add_middleware(
      CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -220,7 +223,7 @@ def validate_user(current_user: str = Depends(verify_token)):
 def logout(response:Response):
     response.delete_cookie("token")
     return {"message": "logged out"}
-    
+
 @app.get("/forecast_sPMV")
 def forecast_sPMV(current_user: str = Depends(verify_token)):
     if not is_admin(current_user):
