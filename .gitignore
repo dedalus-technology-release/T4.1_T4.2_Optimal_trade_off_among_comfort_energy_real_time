@@ -1,7 +1,6 @@
 __pycache__
 venv
 .env
-*.csv
 build-dataset.py
 *.db
 *.ipynb

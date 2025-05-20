@@ -1,22 +1,20 @@
 import pandas as pd
 import numpy as np
 import os
+import logging
 import json
 from datetime import datetime, timedelta, timezone
 
-from scripts.Calculate_sPMV_v1 import sPMV_calculation
-from scripts.augment_dataset import augment_dataset
 from scripts.control_dbf_apis import get_token, get_device_data_grouped
 from scripts.data_preprocessing import preprocess_data
 from scripts.forecast_spmv import forecast_and_update_df, prepare_features, generate_forecasts
 from scripts.pareto_optimization_runner import run_pareto_optimization
 import tensorflow as tf
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status, Form
+from fastapi import FastAPI, Depends, HTTPException, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from models import create_user, authenticate_user, is_admin
 from auth import create_access_token, verify_token
-from database import init_db
 
 from typing import Optional
 from datetime import timedelta
@@ -29,7 +27,13 @@ DATASETS_DIR = os.path.join(BASE_DIR, "datasets")
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'final_model.h5')
 USERNAME = os.getenv('DOMX_USERNAME')
 PASSWORD = os.getenv('DOMX_PASSWORD')
-DEFAULT_START_DAYS_AGO = 7
+DEFAULT_START_DAYS_AGO = 15
+
+logging.basicConfig(
+    level=logging.INFO,  # Livello minimo di registrazione
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Formato del messaggio di log
+    datefmt='%Y-%m-%d %H:%M:%S'  # Formato della data e dell'ora
+)
 
 app = FastAPI()
 
@@ -73,7 +77,7 @@ def update_datasets():
     token = get_token(USERNAME, PASSWORD)
     
     if not token:
-        print("Token retrieval failed.")
+        logging.error("Token retrieval failed.")
         return
     
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -104,11 +108,11 @@ def update_datasets():
 
             # check empty request
             if date_from >= today:
-                print(f"No new data for {sensor_id} ({building} - {exx})")
+                logging.error(f"No new data for {sensor_id} ({building} - {exx})")
                 continue
 
             # download new data
-            print(f"[{building} - {exx}] download from {iso_date(date_from)} to {iso_date(today)}")
+            logging.info(f"[{building} - {exx}] download from {iso_date(date_from)} to {iso_date(today)}")
             data_json = get_device_data_grouped(
                 token,
                 sensor_id,
@@ -132,7 +136,7 @@ def update_datasets():
                 forecast_df.to_csv(os.path.join( folder_path, "forecasted_sPMV.csv"), index=False)
                 
                 new_df = forecast_and_update_df(new_df, MODEL)
-                print(new_df.head())
+                
                 if os.path.exists(csv_path):
                     existing_df = pd.read_csv(csv_path)
                     existing_df["time"] = pd.to_datetime(existing_df["time"])
@@ -143,9 +147,9 @@ def update_datasets():
 
                 combined_df.sort_values(by="time", inplace=True)
                 combined_df.to_csv(csv_path, index=False)
-                print(f"Updated data saved in {csv_path}")
+                logging.info(f"Updated data saved in {csv_path}")
             except Exception as e:
-                print(f"Error during saving {sensor_id}: {e}")
+                logging.error(f"Error during saving {sensor_id}: {e}")
 
 def optimize_all():
     with open(CONFIG_PATH, 'r') as f:
@@ -157,7 +161,7 @@ def optimize_all():
             csv_path = os.path.join(folder_path, f"{exx}_dataset.csv")
             
             if not os.path.exists(csv_path):
-                print(f"File not found for building '{building}' and apartment '{exx}'.")
+                logging.error(f"File not found for building '{building}' and apartment '{exx}'.")
                 continue
             
             run_pareto_optimization(csv_path, folder_path)
@@ -194,7 +198,7 @@ def forecast_sPMV(current_user: str = Depends(verify_token)):
     if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin privileges required")
     update_datasets()
-    return {"message": "Forecasting completed!"}
+    return {"message": "Forecasting and optimization completed!"}
 
 @app.get("/run_optimization")
 def run_optimization(current_user: str = Depends(verify_token)):
@@ -219,9 +223,9 @@ def GET_forecasted_sPMV(current_user: str = Depends(verify_token), building: str
 
 @app.get("/optimization/{building}/{exx}")
 def GET_optimization(current_user: str = Depends(verify_token), building: str = "CASA MADDALENA", exx: str = "E144"):
+    
     folder_path = os.path.join(DATASETS_DIR, building, exx, "optimization_results")
     csv_path = os.path.join(folder_path, f"solutions_summary.csv")
-    
     if not os.path.exists(csv_path):
         raise HTTPException(status_code=404, detail=f"File not found for building '{building}' and apartment '{exx}'.")
 
@@ -231,5 +235,34 @@ def GET_optimization(current_user: str = Depends(verify_token), building: str = 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading CSV file: {str(e)}")
 
-#if __name__ == "__main__":
-#    update_datasets()
+@app.get("/energy/{building}/{exx}")
+def GET_energy(current_user: str = Depends(verify_token), building: str = "CASA MADDALENA", exx: str = "E144"):
+    
+    date_from = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    date_end = date_from + timedelta(days=1)
+    
+    token = get_token(USERNAME, PASSWORD)
+    
+    if not token:
+        logging.error("Token retrieval failed.")
+        return
+    
+    with open(CONFIG_PATH, 'r') as f:
+        config = json.load(f)
+    
+    for building_name, apartment in config.items():
+        if building_name == building:
+            for exx_code, sensors in apartment.items():
+                if(exx_code == exx):
+                    sensor_id = sensors.get("smart_meters")
+    
+    data_json = get_device_data_grouped(
+        token,
+        sensor_id,
+        iso_date(date_from),
+        iso_date(date_end),
+        metrics=["energy_a", "power_a"],
+        interval="1h"
+    )
+    
+    return data_json

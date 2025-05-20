@@ -4,6 +4,7 @@ from pathlib import Path
 
 #DB_PATH = os.path.join(os.path.dirname(__file__), "data", "users.db")
 DB_PATH = os.getenv("DB_PATH", "/app/data/users.db")
+DB_PATH = "./data/users.db"
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 def get_connection():

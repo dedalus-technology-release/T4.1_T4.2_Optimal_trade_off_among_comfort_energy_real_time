@@ -18,6 +18,16 @@ services:
       - data:/app/data
     env_file:
       - .env
+  scheduler:
+    build: ./scheduler
+    container_name: IT_DT_daily_trigger
+    depends_on:
+      - comfort-flexibility-service
+    volumes:
+      - .env:/env/.env
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: unless-stopped
 
 volumes:
   data:
