@@ -13,6 +13,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       APP_PORT: ${APP_PORT}
+      APP_FE_URL: ${APP_FE_URL}
       DB_PATH: /app/data/users.db
     volumes:
       - data:/app/data
