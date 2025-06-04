@@ -36,7 +36,7 @@ def get_flexibility_heating(data: List[EnergyEntry]):
     #    with open("./last_flexibility_input.json", "w") as f:
     #        json.dump(json_data, f, indent=2)
     
-    #response = requests.request("POST", FLEXIBILITY_HEATING_URL + "/flexibility/calculate", headers=headers, data=json_data)
-    response = requests.post("http://localhost:8555/flexibility/calculate", headers=headers, data=json_data)
+    response = requests.request("POST", FLEXIBILITY_HEATING_URL + "/flexibility/calculate", headers=headers, data=json_data)
+    #response = requests.post("http://localhost:8555/flexibility/calculate", headers=headers, data=json_data)
     
     return response.json()
