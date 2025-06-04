@@ -61,7 +61,7 @@ def preprocess_data(df):
         df['sPMV'] = df['sPMV'].ffill().bfill()
         
         # Calculate energy average from baseline and flexibility_below
-        df['energy_average'] = (df['baseline'] + df['flexibility_below']) / 2
+        #df['energy_average'] = (df['baseline'] + df['flexibility_below']) / 2
         
         # Select required features
         features = [
@@ -69,12 +69,19 @@ def preprocess_data(df):
             'sPMV',
             'baseline',
             'flexibility_below',
+            'flexibility_above',
             'energy_average',
             't_r',
             'rh_r',
             'hour',
             'day_of_week',
-            'is_weekend'
+            'is_weekend',
+            "synthetic_baseline", 
+            "synthetic_flexibility_above", 
+            "synthetic_flexibility_below",
+            "synthetic_t_r",
+            "synthetic_rh_r",
+            "synthetic_energy"
         ]
         
         df_final = df[features].copy()

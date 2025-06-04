@@ -83,10 +83,10 @@ def load_data(file_path: str) -> pd.DataFrame:
     df['time'] = pd.to_datetime(df['time'])
     
     # Drop CO2 data column
-    if 'co2_ppm' in df.columns:
-        df = df.drop(columns=['co2_ppm'])
+    #if 'co2_ppm' in df.columns:
+    #    df = df.drop(columns=['co2_ppm'])
     
-    return df
+    return df[["time", "sPMV", "baseline", "flexibility_below", "flexibility_above", "energy_average", "t_r", "rh_r", 'hour', 'day_of_week', 'is_weekend', 'forecasted_sPMV']]
 
 
 def process_data(df: pd.DataFrame) -> pd.DataFrame:
